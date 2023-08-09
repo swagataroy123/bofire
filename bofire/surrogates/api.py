@@ -5,6 +5,9 @@ from bofire.surrogates.mixed_single_task_gp import MixedSingleTaskGPSurrogate
 from bofire.surrogates.mlp import MLPEnsemble
 from bofire.surrogates.random_forest import RandomForestSurrogate
 from bofire.surrogates.single_task_gp import SingleTaskGPSurrogate
+from bofire.surrogates.single_task_variational_gp import (
+    SingleTaskVariationalGPSurrogate,
+)
 from bofire.surrogates.surrogate import Surrogate
 from bofire.surrogates.trainable import TrainableSurrogate
 from bofire.surrogates.values import PredictedValue

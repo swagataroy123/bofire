@@ -1,11 +1,14 @@
 import itertools
-from typing import List
+from typing import List, Union
 
 from bofire.data_models.base import BaseModel
 from bofire.data_models.domain.api import Inputs, Outputs
-from bofire.data_models.outlier_detection.outlier_detection import IterativeTrimming
+from bofire.data_models.outlier_detection.outlier_detection import (
+    IterativeTrimming,
+    StudentT,
+)
 
-AnyOutlierDetector = IterativeTrimming
+AnyOutlierDetector = Union[IterativeTrimming, StudentT]
 
 
 class OutlierDetections(BaseModel):
@@ -49,3 +52,5 @@ class OutlierDetections(BaseModel):
                     raise ValueError(f"Features with key {feat.key} are incompatible.")
                 if feat.key not in used_feature_keys:
                     used_feature_keys.append(feat.key)
+        if len(used_feature_keys) != len(inputs):
+            raise ValueError("Unused features are present.")

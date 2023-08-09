@@ -9,23 +9,22 @@ from bofire.data_models.domain.api import Inputs, Outputs
 from bofire.data_models.surrogates.api import (
     MixedSingleTaskGPSurrogate,
     SingleTaskGPSurrogate,
+    SingleTaskVariationalGPSurrogate,
 )
 
 
 class OutlierDetection(BaseModel):
     type: str
 
+    @property
+    @abstractmethod
+    def inputs(self) -> Inputs:  # type: ignore
+        pass
 
-@property
-@abstractmethod
-def inputs(self) -> Inputs:  # type: ignore
-    pass
-
-
-@property
-@abstractmethod
-def outputs(self) -> Outputs:  # type: ignore
-    pass
+    @property
+    @abstractmethod
+    def outputs(self) -> Outputs:  # type: ignore
+        pass
 
 
 class IterativeTrimming(OutlierDetection):
@@ -49,9 +48,47 @@ class IterativeTrimming(OutlierDetection):
     nsh: Annotated[int, Field(ge=1)] = 2
     ncc: Annotated[int, Field(ge=1)] = 2
     nrw: Annotated[int, Field(ge=1)] = 1
-    base_gp: Union[SingleTaskGPSurrogate, MixedSingleTaskGPSurrogate]
+    base_gp: Union[
+        SingleTaskGPSurrogate,
+        MixedSingleTaskGPSurrogate,
+        SingleTaskVariationalGPSurrogate,
+    ]
 
     @validator("base_gp")
+    def validate_base_gp(cls, v, values):
+        # validate that all base_gps are single output surrogates
+        # TODO: this restriction has to be removed at some point
+
+        if len(v.outputs) != 1:
+            raise ValueError("Only single output base_gps allowed.")
+
+        return v
+
+    @property
+    def inputs(self) -> Inputs:
+        return self.base_gp.inputs
+
+    @property
+    def outputs(self) -> Outputs:
+        return self.base_gp.outputs
+
+
+class StudentT(OutlierDetection):
+    """Remove outliers using student-t posterior
+
+    Paper: Practical Bayesian optimization in the presence of outliers.
+    http://proceedings.mlr.press/v84/martinez-cantin18a/martinez-cantin18a.pdf
+
+    Attributes:
+        alpha (float in (0, 1)): percentile of the predicted distribution as a classification threshold.
+        base_gp (SingleTaskVariationalGPSurrogate): Student-t model for outlier detection.
+    """
+
+    type: Literal["StudentT"] = "StudentT"
+    alpha: Annotated[float, Field(gt=0.0, lt=1.0)] = 0.05
+    base_gp: SingleTaskVariationalGPSurrogate
+
+    @validator("base_gp")  # type: ignore
     def validate_base_gp(cls, v, values):
         # validate that all base_gps are single output surrogates
         # TODO: this restriction has to be removed at some point

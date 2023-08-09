@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import List
+from typing import List, Union
 
 import pandas as pd
 
@@ -7,10 +7,11 @@ from bofire.data_models.outlier_detection.api import OutlierDetections as DataMo
 from bofire.outlier_detection.api import (  # noqa: F401
     IterativeTrimming,
     OutlierDetection,
+    StudentT,
 )
 from bofire.outlier_detection.api import map as map_outlier
 
-AnyOutlierDetector = IterativeTrimming
+AnyOutlierDetector = Union[IterativeTrimming, StudentT]
 
 
 class OutlierDetections(ABC):

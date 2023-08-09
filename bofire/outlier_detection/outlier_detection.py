@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import pandas as pd
-from scipy.stats import chi2  # type: ignore
+from scipy.stats import chi2, t  # type: ignore
 
 import bofire.surrogates.api as surrogates
 from bofire.data_models.domain.api import Inputs, Outputs
@@ -103,9 +103,49 @@ class IterativeTrimming(OutlierDetection):
                 break  # converged
             ix_old = ix_sub
 
-            filtered_experiments = experiments.copy()
+        filtered_experiments = experiments.copy()
+        filtered_experiments.loc[
+            ~ix_sub,  # type: ignore
+            f"valid_{self.base_gp.outputs.get_keys()[0]}",  # type: ignore
+        ] = 0
+        return filtered_experiments  # type: ignore
+
+
+class StudentT(OutlierDetection):
+    def __init__(self, data_model, **kwargs):
+        self.alpha = data_model.alpha
+        self.base_gp = data_model.base_gp
+        self.surrogate = surrogates.map(self.base_gp)
+        super().__init__()
+
+    @property
+    def inputs(self) -> Inputs:
+        return self.base_gp.inputs
+
+    @property
+    def outputs(self) -> Outputs:
+        return self.base_gp.outputs
+
+    def detect(self, experiments: pd.DataFrame) -> pd.DataFrame:
+        alpha = self.alpha
+        self.surrogate.fit(experiments)  # type: ignore
+        pred = self.surrogate.predict(experiments)
+        df = self.surrogate.model.likelihood.deg_free.item()  # type: ignore
+        scale = self.surrogate.model.likelihood.noise.sqrt().item()  # type: ignore
+        t_lim = t(df).ppf(alpha)
+        ix_sub = np.logical_or(
+            experiments[self.base_gp.outputs.get_keys()[0]].values
+            <= pred[self.base_gp.outputs.get_keys()[0] + "_pred"].values
+            + t_lim * scale,
+            experiments[self.base_gp.outputs.get_keys()[0]].values
+            >= pred[self.base_gp.outputs.get_keys()[0] + "_pred"].values
+            - t_lim * scale,
+        )
+
+        filtered_experiments = experiments.copy()
+        if sum(ix_sub) < np.ceil(len(experiments) / 2):
             filtered_experiments.loc[
-                ~ix_sub,
+                ix_sub,
                 f"valid_{self.base_gp.outputs.get_keys()[0]}",  # type: ignore
             ] = 0
         return filtered_experiments  # type: ignore

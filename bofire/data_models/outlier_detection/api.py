@@ -3,10 +3,11 @@ from typing import Union
 from bofire.data_models.outlier_detection.outlier_detection import (
     IterativeTrimming,
     OutlierDetection,
+    StudentT,
 )
 from bofire.data_models.outlier_detection.outlier_detections import (
     OutlierDetections,
 )
 
-AnyOutlierDetection = IterativeTrimming
+AnyOutlierDetection = Union[IterativeTrimming, StudentT]
 AnyAbstractOutlierDetection = OutlierDetection

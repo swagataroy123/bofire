@@ -20,6 +20,9 @@ try:
         SingleTaskGPHyperconfig,
         SingleTaskGPSurrogate,
     )
+    from bofire.data_models.surrogates.single_task_variational_gp import (
+        SingleTaskVariationalGPSurrogate,
+    )
     from bofire.data_models.surrogates.surrogate import Surrogate
     from bofire.data_models.surrogates.tanimoto_gp import TanimotoGPSurrogate
     from bofire.data_models.surrogates.xgb import XGBoostSurrogate
@@ -30,6 +33,7 @@ try:
         EmpiricalSurrogate,
         RandomForestSurrogate,
         SingleTaskGPSurrogate,
+        SingleTaskVariationalGPSurrogate,
         MixedSingleTaskGPSurrogate,
         MLPEnsemble,
         SaasSingleTaskGPSurrogate,

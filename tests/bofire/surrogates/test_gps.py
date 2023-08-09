@@ -3,7 +3,7 @@ import importlib
 import pandas as pd
 import pytest
 import torch
-from botorch.models import MixedSingleTaskGP, SingleTaskGP
+from botorch.models import MixedSingleTaskGP, SingleTaskGP, SingleTaskVariationalGP
 from botorch.models.transforms.input import (
     ChainedInputTransform,
     InputStandardize,
@@ -51,6 +51,7 @@ from bofire.data_models.surrogates.api import (
     ScalerEnum,
     SingleTaskGPHyperconfig,
     SingleTaskGPSurrogate,
+    SingleTaskVariationalGPSurrogate,
 )
 from bofire.data_models.surrogates.tanimoto_gp import TanimotoGPSurrogate
 from bofire.data_models.surrogates.trainable import metrics2objectives
@@ -214,7 +215,7 @@ def test_SingleTaskGPModel(kernel, scaler):
     # test error on non fitted model
     with pytest.raises(ValueError):
         model.predict(samples)
-    model.fit(experiments)
+    model.fit(experiments)  # type: ignore
     # dump the model
     dump = model.dumps()
     # make predictions
@@ -232,7 +233,7 @@ def test_SingleTaskGPModel(kernel, scaler):
     else:
         with pytest.raises(AttributeError):
             assert model.model.input_transform is None
-    assert model.is_compatibilized is False
+    assert model.is_compatibilized is False  # type: ignore
     # reload the model from dump and check for equality in predictions
     model2 = SingleTaskGPSurrogate(
         inputs=inputs,
@@ -244,6 +245,69 @@ def test_SingleTaskGPModel(kernel, scaler):
     model2.loads(dump)
     preds2 = model2.predict(samples)
     assert_frame_equal(preds, preds2)
+
+
+@pytest.mark.parametrize(
+    "kernel, scaler",
+    [
+        (ScaleKernel(base_kernel=RBFKernel(ard=True)), ScalerEnum.NORMALIZE),
+        (ScaleKernel(base_kernel=RBFKernel(ard=False)), ScalerEnum.STANDARDIZE),
+        (ScaleKernel(base_kernel=RBFKernel(ard=False)), ScalerEnum.IDENTITY),
+    ],
+)
+def test_SingleTaskVariationalGPModel(kernel, scaler):
+    inputs = Inputs(
+        features=[
+            ContinuousInput(
+                key=f"x_{i+1}",
+                bounds=(-4, 4),
+            )
+            for i in range(2)
+        ]
+    )
+    outputs = Outputs(features=[ContinuousOutput(key="y")])
+    experiments = inputs.sample(n=10)
+    experiments.eval("y=((x_1**2 + x_2 - 11)**2+(x_1 + x_2**2 -7)**2)", inplace=True)
+    experiments["valid_y"] = 1
+    model = SingleTaskVariationalGPSurrogate(
+        inputs=inputs,
+        outputs=outputs,
+        kernel=kernel,
+        scaler=scaler,
+    )
+    model = surrogates.map(model)
+    samples = inputs.sample(5)
+    # test error on non fitted model
+    with pytest.raises(ValueError):
+        model.predict(samples)
+    model.fit(experiments)  # type: ignore
+    # dump the model
+    dump = model.dumps()
+    # make predictions
+    samples2 = samples.copy()
+    samples2 = samples2.astype({"x_1": "object"})
+    preds = model.predict(samples2)
+    assert preds.shape == (5, 2)
+    # check that model is composed correctly
+    assert isinstance(model.model, SingleTaskVariationalGP)
+    if scaler == ScalerEnum.NORMALIZE:
+        assert isinstance(model.model.input_transform, Normalize)
+    elif scaler == ScalerEnum.STANDARDIZE:
+        assert isinstance(model.model.input_transform, InputStandardize)
+    else:
+        with pytest.raises(AttributeError):
+            assert model.model.input_transform is None
+    assert model.is_compatibilized is False  # type: ignore
+    # reload the model from dump and check for equality in predictions
+    model2 = SingleTaskVariationalGPSurrogate(
+        inputs=inputs,
+        outputs=outputs,
+        kernel=kernel,
+        scaler=scaler,
+    )
+    model2 = surrogates.map(model2)
+    model2.loads(dump)
+    assert str(model.model.state_dict()) == str(model2.model.state_dict())  # type: ignore
 
 
 @pytest.mark.parametrize("target_metric", list(RegressionMetricsEnum))
@@ -435,7 +499,7 @@ def test_MixedGPModel(kernel, scaler):
     model = surrogates.map(model)
     with pytest.raises(ValueError):
         model.dumps()
-    model.fit(experiments)
+    model.fit(experiments)  # type: ignore
     # dump the model
     dump = model.dumps()
     # make predictions
@@ -463,7 +527,7 @@ def test_MixedGPModel(kernel, scaler):
         assert isinstance(model.model.input_transform.tf2, OneHotToNumeric)
     else:
         assert isinstance(model.model.input_transform, OneHotToNumeric)
-    assert model.is_compatibilized is False
+    assert model.is_compatibilized is False  # type: ignore
     # reload the model from dump and check for equality in predictions
     model2 = MixedSingleTaskGPSurrogate(
         inputs=inputs,

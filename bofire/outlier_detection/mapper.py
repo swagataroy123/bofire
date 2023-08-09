@@ -4,10 +4,12 @@ from bofire.data_models.outlier_detection import api as data_models
 from bofire.outlier_detection.outlier_detection import (
     IterativeTrimming,
     OutlierDetection,
+    StudentT,
 )
 
 OUTLIER_MAP: Dict[Type[data_models.OutlierDetection], Type[OutlierDetection]] = {
     data_models.IterativeTrimming: IterativeTrimming,
+    data_models.StudentT: StudentT,
 }
 
 
